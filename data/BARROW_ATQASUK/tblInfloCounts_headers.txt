@@ -1,0 +1,1 @@
+"strSitCom"	"strTrea"	"numYear"	"strIdLo"	"strGSpp"	"strSexx"	"strGSppSex"	"strTreaYear"	"strJulian"	"numJulian"	"AvgOfAvgOfnumResponse"
