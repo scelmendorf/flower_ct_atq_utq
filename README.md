@@ -20,7 +20,6 @@ Data used in the analyses, which represent a snapshot of ongoing data collection
 
 ```
 /data/BARROW_ATQASUK
-/data/BARROW_ATQASUK/readme.md
 ```
 
 Please note that raw data for ongoing collections for these datasets (archived in a slightly different format) can be found at:
