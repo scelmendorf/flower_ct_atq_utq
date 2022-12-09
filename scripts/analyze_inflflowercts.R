@@ -1447,7 +1447,7 @@ write.csv(sumry_table_maxct, "tables/max_ct_by_spp_by_year.csv",
 # -- PLOT GDD accumulation typical ----
 # Makes Fig 1
 # temp plots
-# figure out avg doy with non0 flcts
+# figure out avg doy with non-0 flcts
 sumry <- full_season_sampling_midpoint_ctl %>%
   filter(!is.na(ct) & ct > 0 & numYear != 1998 & numYear != 2019) %>%
   # just grab paired OTC data
@@ -1471,14 +1471,15 @@ temps <- full_season_sampling_midpoint_ctl %>%
   filter(numYear != 1998 & numYear != 2019) %>%
   select(-strGSpp, -strSexx, -strGSppSex, -ct) %>%
   distinct()
-# forcings illustration - calc cc for all values 0-20
 
+# forcings illustration - calc cc for all values 0-40
+# note no hourlies exceed 40 so this is a no threshold calc
 DD_by_day <- function(df, n) {
   varname <- paste("DD", n, sep = ".")
   mutate(df %>% rowwise(), !!varname := DD_func(temp = meanT, thresh = n, sf = sf))
 }
 
-for (b in (c(0, 2, 4, 6, 10, 20))) {
+for (b in (c(0, 2, 4, 6, 10, 40))) {
   temps <- full_join(
     temps,
     DD_by_day(temps, b)
@@ -1534,6 +1535,7 @@ sci_labs <- sumry %>%
     strTrea = ifelse(strTrea == "OTC", "warmed", "ambient"),
     subsite = factor(subsite)
   )
+
 levels(sci_labs$subsite) <- c(
   "Atqasuk - Dry",
   "Atqasuk - Wet",
@@ -1541,64 +1543,150 @@ levels(sci_labs$subsite) <- c(
   expression(paste("Utqia", dot(g), "vik - Wet"))
 )
 
-DD_sum_plot_ave <- ggplot(DD_cum_sum %>% filter(how == "ave" & numJulian <= 235), aes(x = numJulian, y = DD_sum / 24)) +
-  geom_line(aes(group = threshold, color = threshold)) +
-  facet_grid(strTrea ~ subsite, labeller = label_parsed) +
-  scale_color_gradient(low = "blue", high = "red") +
-  geom_point(data = sci_labs, aes(x = numJulian, y = 0)) +
+# label should go at approx 235 for spacing
+# this range captures the majority of the growign season
+DDthresh_labels <- DD_cum_sum %>%
+  filter(how == "ave" & numJulian == 235) %>%
+  mutate(y = DD_sum / 24, numJulian = numJulian + 10) %>%
+  mutate(threshold = as.character(threshold)) %>%
+  mutate(threshold = ifelse(threshold == "40", "none", threshold))
+
+# in order to make the colors, I first made the plot with
+# ranges of 0-20, then scale_color_gradient(low = "blue", high = "red")
+# then extracted colors and remapped them to 'none' as high
+# which seemed to get a reasonable blue-red scale
+
+# ggplot_build(DD_sum_plot_ave_dry)$data[[1]] %>%
+#   select(colour, group) %>%
+#   distinct()
+
+cols <- rep(c("#0000FF", "#4B00F3", "#6800E7", "#7C00DA", "#9A00C3", "#FF0000"), 4)
+
+DD_sum_plot_ave_dry <- ggplot(
+  DD_cum_sum %>% filter(how == "ave" & numJulian <= 235 & grepl("Dry", subsite)),
+  aes(x = numJulian, y = DD_sum / 24)
+) +
+  geom_line(aes(group = threshold, color = factor(threshold))) +
+  facet_grid(subsite ~ strTrea, labeller = label_parsed) +
+  # scale_color_gradient(low = "blue", high = "red") +
+  scale_color_manual(values = cols[1:7]) +
+  geom_point(data = sci_labs %>%
+    filter(grepl("Dry", subsite)), aes(x = numJulian, y = 0)) +
   geom_text_repel(
-    data = sci_labs, aes(x = numJulian, y = 0, label = sci_name),
+    data = sci_labs %>%
+      filter(grepl("Dry", subsite)), aes(x = numJulian, y = 0, label = sci_name),
     nudge_y = -25,
     direction = "x",
     angle = -90,
     vjust = 1,
     segment.size = 0.1,
     segment.color = "grey0",
+    max.overlaps = 50,
     size = 2
   ) +
-  ylim(-400, 800) +
+  ylim(-400, 830) +
   theme_bw() +
-  xlim(122, 255) +
+  xlim(140, 258) +
   geom_text(
-    data = DD_cum_sum %>% filter(how == "ave" & numJulian == 235),
+    data = DDthresh_labels %>%
+      filter(grepl("Dry", subsite)),
     aes(
-      label = threshold, colour = threshold,
-      x = numJulian + 10, y = DD_sum / 24
-    ), size = 3
+      label = threshold, # colour = col,
+      x = numJulian, y = y
+    ), size = 2, color = cols,
+    parse = TRUE
   ) +
   theme(
-    plot.margin = unit(c(1, 3, 1, 1), "lines"),
     text = element_text(size = 9),
     strip.text = element_text(size = 9)
   ) +
-  guides(color = FALSE) + # ggtitle("Growing degree accumulation in an average year")+
-  labs(
-    x = "day of year (DOY)",
-    y = expression("GDD"[max] * " \n (sum of hourly temperatures above 0° C \n and capped at the maximum temperature threshold)")
+  guides(color = "none") +
+  labs(x = "", y = NULL)
+
+# DD_sum_plot_ave_dry
+
+# repeat for wet
+DD_sum_plot_ave_wet <- ggplot(
+  DD_cum_sum %>% filter(how == "ave" & numJulian <= 235 & grepl("Wet", subsite)),
+  aes(x = numJulian, y = DD_sum / 24)
+) +
+  geom_line(aes(group = threshold, color = factor(threshold))) +
+  facet_grid(subsite ~ strTrea, labeller = label_parsed) +
+  scale_color_manual(values = cols[1:7]) +
+  # scale_color_gradient(low = "blue", high = "red") +
+  geom_point(data = sci_labs %>%
+    filter(grepl("Wet", subsite)), aes(x = numJulian, y = 0)) +
+  geom_text_repel(
+    data = sci_labs %>%
+      filter(grepl("Wet", subsite)), aes(x = numJulian, y = 0, label = sci_name),
+    nudge_y = -25,
+    direction = "x",
+    angle = -90,
+    vjust = 1,
+    # hjust = 'left',
+    segment.size = 0.1,
+    segment.color = "grey0",
+    max.overlaps = Inf,
+    size = 2
+  ) +
+  ylim(-400, 830) +
+  theme_bw() +
+  xlim(140, 258) +
+  geom_text(
+    data = DDthresh_labels %>%
+      filter(grepl("Wet", subsite)),
+    aes(
+      label = threshold, # colour = col,
+      x = numJulian, y = y
+    ), size = 2, color = cols,
+    parse = TRUE
+  ) +
+  theme(
+    text = element_text(size = 9),
+    strip.text = element_text(size = 9)
+  ) +
+  guides(color = "none") +
+  labs(x = "", y = NULL)
+
+
+# combine dry and wet
+plot_row <- plot_grid(DD_sum_plot_ave_dry + xlab("") + ylab(NULL), DD_sum_plot_ave_wet + xlab("") + ylab(NULL),
+  nrow = 1,
+  labels = "auto"
+)
+
+# add create title block
+title <- ggdraw() +
+  draw_label(
+    label = "",
+    fontface = "bold",
+    color = "white",
+    x = 0,
+    hjust = 0,
+    angle = 90
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.background = element_rect(fill = "white", color = NA) # ,
   )
 
-
-DD_sum_plot_ave <- DD_sum_plot_ave +
-  ylab("") + # empty label
-  # Tweak the margins (push the label down by forcing a wider top margin)
-  theme(axis.title.y = element_text(
-    size = 10, # also adjust text size if needed
-    margin = margin(
-      t = 0, r = 3, b = 0, l = 0,
-      unit = "mm"
-    )
-  ))
+# title and panels together
+DD_sum_plot_ave <- plot_grid(title, plot_row, nrow = 1, rel_widths = c(.07, 1))
 
 # multiline y axis
 line_1 <- expression("GDD"[max])
 line_2 <- "(sum of hourly temperatures above 0 °C"
 line_3 <- "and capped at the maximum temperature threshold)/24"
 
+xlab_line_1 <- "day of year (DOY)"
+
 # Call cowplot::draw_label two times to plot two lines of text
 DD_sum_plot_ave <- ggdraw(DD_sum_plot_ave) +
-  draw_label(line_1, x = 0.015, y = 0.5, angle = 90, size = 9) + # use relative coordinates for positioning
-  draw_label(line_2, x = 0.030, y = 0.5, angle = 90, size = 9) +
-  draw_label(line_3, x = 0.045, y = 0.5, angle = 90, size = 9)
+  draw_label(line_1, x = 0.020, y = 0.5, angle = 90, size = 9) + # use relative coordinates for positioning
+  draw_label(line_2, x = 0.035, y = 0.5, angle = 90, size = 9) +
+  draw_label(line_3, x = 0.050, y = 0.5, angle = 90, size = 9) +
+  draw_label(xlab_line_1, x = 0.5, y = 0.015, angle = 0, size = 9)
 
 ggsave(DD_sum_plot_ave,
   file = paste0("plots/DD_sum_plot_ave.jpg"),
