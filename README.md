@@ -1,11 +1,10 @@
 # Atqasuk and Utqiaġvik flower count data and code repository
 
 ## Content
-This repository contains the code and data necessary to replicate data analysis, figures and tables in submitted manuscript:
+This repository contains the code and data necessary to replicate data analysis, figures and tables in the manuscript:
 
-How hot is too hot? Limits on phenological response to warming in the Arctic
+Limits on phenological response to high temperature in the Arctic
 
-and will be permanently archived on zenodo upon publication
 ## Contacts
 Sarah C. Elmendorf; sarah.elmendorf [at] colorado.edu
 
